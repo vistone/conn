@@ -1,3 +1,31 @@
+// Copyright (c) 2024, vistone
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this
+//    list of conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice,
+//    this list of conditions and the following disclaimer in the documentation
+//    and/or other materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its
+//    contributors may be used to endorse or promote products derived from
+//    this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 // Package conn 对 net.Conn 的扩展，包括超时读取、限速统计和双向数据交换等功能
 package conn
 
@@ -145,11 +173,13 @@ func (rl *RateLimiter) refillTokens() {
 	if elapsed := now - last; elapsed > 0 && atomic.CompareAndSwapInt64(&rl.lastUpdate, last, now) {
 		// 更新读写令牌
 		elapsedSeconds := float64(elapsed) / float64(time.Second)
-		readAdd := int64(float64(rl.readRate) * elapsedSeconds)
-		writeAdd := int64(float64(rl.writeRate) * elapsedSeconds)
+		readRate := atomic.LoadInt64(&rl.readRate)
+		writeRate := atomic.LoadInt64(&rl.writeRate)
+		readAdd := int64(float64(readRate) * elapsedSeconds)
+		writeAdd := int64(float64(writeRate) * elapsedSeconds)
 
-		rl.addTokens(&rl.readTokens, readAdd, rl.readRate)
-		rl.addTokens(&rl.writeTokens, writeAdd, rl.writeRate)
+		rl.addTokens(&rl.readTokens, readAdd, readRate)
+		rl.addTokens(&rl.writeTokens, writeAdd, writeRate)
 
 		// 通知等待的协程
 		rl.condition.Broadcast()
@@ -192,7 +222,9 @@ func NewStatConn(conn net.Conn, rx, tx *uint64, rate *RateLimiter) *StatConn {
 func (sc *StatConn) Read(b []byte) (int, error) {
 	n, err := sc.Conn.Read(b)
 	if n > 0 {
-		atomic.AddUint64(sc.RX, uint64(n))
+		if sc.RX != nil {
+			atomic.AddUint64(sc.RX, uint64(n))
+		}
 		if sc.Rate != nil {
 			sc.Rate.WaitRead(int64(n))
 		}
@@ -207,7 +239,9 @@ func (sc *StatConn) Write(b []byte) (int, error) {
 	}
 	n, err := sc.Conn.Write(b)
 	if n > 0 {
-		atomic.AddUint64(sc.TX, uint64(n))
+		if sc.TX != nil {
+			atomic.AddUint64(sc.TX, uint64(n))
+		}
 	}
 	return n, err
 }
@@ -254,11 +288,17 @@ func (sc *StatConn) GetRate() *RateLimiter {
 
 // GetRX 返回已接收的字节数
 func (sc *StatConn) GetRX() uint64 {
+	if sc.RX == nil {
+		return 0
+	}
 	return atomic.LoadUint64(sc.RX)
 }
 
 // GetTX 返回已发送的字节数
 func (sc *StatConn) GetTX() uint64 {
+	if sc.TX == nil {
+		return 0
+	}
 	return atomic.LoadUint64(sc.TX)
 }
 
@@ -269,8 +309,12 @@ func (sc *StatConn) GetTotal() uint64 {
 
 // Reset 重置统计数据
 func (sc *StatConn) Reset() {
-	atomic.StoreUint64(sc.RX, 0)
-	atomic.StoreUint64(sc.TX, 0)
+	if sc.RX != nil {
+		atomic.StoreUint64(sc.RX, 0)
+	}
+	if sc.TX != nil {
+		atomic.StoreUint64(sc.TX, 0)
+	}
 }
 
 // AsTCPConn 安全地将底层连接转换为 *net.TCPConn
@@ -342,7 +386,9 @@ func (sc *StatConn) ReadFromUDP(b []byte) (int, *net.UDPAddr, error) {
 	if udpConn, ok := sc.AsUDPConn(); ok {
 		n, addr, err := udpConn.ReadFromUDP(b)
 		if n > 0 {
-			atomic.AddUint64(sc.RX, uint64(n))
+			if sc.RX != nil {
+				atomic.AddUint64(sc.RX, uint64(n))
+			}
 			if sc.Rate != nil {
 				sc.Rate.WaitRead(int64(n))
 			}
@@ -360,7 +406,9 @@ func (sc *StatConn) WriteToUDP(b []byte, addr *net.UDPAddr) (int, error) {
 		}
 		n, err := udpConn.WriteToUDP(b, addr)
 		if n > 0 {
-			atomic.AddUint64(sc.TX, uint64(n))
+			if sc.TX != nil {
+				atomic.AddUint64(sc.TX, uint64(n))
+			}
 		}
 		return n, err
 	}
@@ -372,7 +420,9 @@ func (sc *StatConn) ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *net.UDP
 	if udpConn, ok := sc.AsUDPConn(); ok {
 		n, oobn, flags, addr, err = udpConn.ReadMsgUDP(b, oob)
 		if n > 0 {
-			atomic.AddUint64(sc.RX, uint64(n))
+			if sc.RX != nil {
+				atomic.AddUint64(sc.RX, uint64(n))
+			}
 			if sc.Rate != nil {
 				sc.Rate.WaitRead(int64(n))
 			}
@@ -390,7 +440,9 @@ func (sc *StatConn) WriteMsgUDP(b, oob []byte, addr *net.UDPAddr) (n, oobn int, 
 		}
 		n, oobn, err = udpConn.WriteMsgUDP(b, oob, addr)
 		if n > 0 {
-			atomic.AddUint64(sc.TX, uint64(n))
+			if sc.TX != nil {
+				atomic.AddUint64(sc.TX, uint64(n))
+			}
 		}
 		return n, oobn, err
 	}
