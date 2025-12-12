@@ -188,6 +188,36 @@ The library has been extensively stress-tested under high-load conditions. Below
 - **Token Bucket Algorithm**: Efficient token distribution with minimal overhead
 - **Thread Safety**: Full atomic operations for concurrent access
 
+### Intense Long-Duration Stress Tests
+
+#### Extreme Rate Limiter Stress Test
+- **Concurrency**: 1000 goroutines
+- **Operations per Goroutine**: 10,000
+- **Bytes per Operation**: 64 bytes
+- **Rate Limits**: 1 GB/s read and write
+- **Test Duration**: 3 minutes
+- **Results**: 
+  - Completed 20 million operations in 5.5 seconds
+  - Operation rate: 3.6 million ops/s
+  - Actual throughput: 0.22 GB/s
+  - Error rate: 0%
+  
+#### Extreme Statistics Stress Test
+- **Concurrency**: 800 goroutines
+- **Operations per Goroutine**: 50,000
+- **Data Size per Operation**: 256 bytes
+- **Stat Groups**: 100 separate statistic groups
+- **Test Duration**: 4 minutes
+- **Operation Types**: Mixed read, write, query, and reset operations
+
+#### Long Duration Comprehensive Stress Test
+- **Concurrent Connections**: 500
+- **Data per Connection**: 10 MB
+- **Chunk Size**: 4 KB
+- **Test Duration**: 5 minutes
+- **Rate Limits**: 100 MB/s read and write
+- **Operation Types**: Mixed read/write with echo operations
+
 ### Key Performance Characteristics
 - **Low Latency**: Sub-millisecond operation overhead
 - **High Throughput**: Capable of handling 600+ MB/s on modern hardware
