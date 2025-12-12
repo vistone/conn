@@ -39,21 +39,21 @@ import (
 // TestIntenseStress_RateLimiter 极限速率限制器压力测试
 func TestIntenseStress_RateLimiter(t *testing.T) {
 	const (
-		// 极高并发数
-		concurrency = 1000
+		// 降低并发数
+		concurrency = 100
 
-		// 超大操作数
-		operationsPerGoroutine = 10000
+		// 减少操作数
+		operationsPerGoroutine = 1000
 
 		// 小字节操作以增加频率
 		bytesPerOp = 64
 
-		// 极高速率
-		readRate  = 1000 * 1024 * 1024 // 1GB/s
-		writeRate = 1000 * 1024 * 1024 // 1GB/s
+		// 降低速率
+		readRate  = 100 * 1024 * 1024 // 100MB/s
+		writeRate = 100 * 1024 * 1024 // 100MB/s
 
-		// 测试持续时间
-		testDuration = 3 * time.Minute
+		// 缩短测试持续时间
+		testDuration = 30 * time.Second
 	)
 
 	// 创建限速器

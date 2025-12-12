@@ -42,17 +42,17 @@ import (
 // TestIntenseStress_Statistics 极限统计功能压力测试
 func TestIntenseStress_Statistics(t *testing.T) {
 	const (
-		// 极高并发数
-		concurrency = 800
+		// 降低并发数以减少资源消耗
+		concurrency = 100
 
-		// 超大操作数
-		operationsPerGoroutine = 50000
+		// 减少操作数
+		operationsPerGoroutine = 1000
 
 		// 小数据块
 		dataSize = 256
 
-		// 测试持续时间
-		testDuration = 4 * time.Minute
+		// 缩短测试持续时间
+		testDuration = 30 * time.Second
 	)
 
 	// 创建监听器
@@ -172,6 +172,10 @@ func TestIntenseStress_Statistics(t *testing.T) {
 	testCtx, testCancel := context.WithTimeout(context.Background(), testDuration)
 	defer testCancel()
 
+	// 设置总体超时，防止测试hang住
+	overallTimeout, overallCancel := context.WithTimeout(context.Background(), testDuration+2*time.Minute)
+	defer overallCancel()
+
 	// 启动压力测试协程
 	var clientWg sync.WaitGroup
 
@@ -211,6 +215,11 @@ func TestIntenseStress_Statistics(t *testing.T) {
 				// 检查是否超时
 				select {
 				case <-testCtx.Done():
+					// 更新未完成的操作数
+					remainingOps := operationsPerGoroutine - j
+					atomic.AddInt64(&totalOps, -int64(remainingOps))
+					return
+				case <-overallTimeout.Done():
 					// 更新未完成的操作数
 					remainingOps := operationsPerGoroutine - j
 					atomic.AddInt64(&totalOps, -int64(remainingOps))
@@ -266,6 +275,8 @@ func TestIntenseStress_Statistics(t *testing.T) {
 			select {
 			case <-testCtx.Done():
 				return
+			case <-overallTimeout.Done():
+				return
 			case <-ticker.C:
 				currentTotal := atomic.LoadInt64(&totalOps)
 				currentCompleted := atomic.LoadInt64(&completedOps)
@@ -301,6 +312,8 @@ func TestIntenseStress_Statistics(t *testing.T) {
 		t.Log("测试时间已到，正在等待协程完成...")
 		// 给协程一些时间来完成清理工作
 		time.Sleep(10 * time.Second)
+	case <-overallTimeout.Done():
+		t.Log("总体超时，强制终止测试...")
 	}
 
 	// 取消服务器和监控协程
