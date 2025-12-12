@@ -200,6 +200,14 @@ func (rl *RateLimiter) addTokens(tokens *int64, add, max int64) {
 	}
 }
 
+// min 返回两个整数中的较小值
+func min(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // StatConn 是一个包装了 net.Conn 的结构体，用于统计并限制读取和写入的字节数
 type StatConn struct {
 	Conn net.Conn

@@ -38,8 +38,8 @@ import (
 	"time"
 )
 
-// min 返回两个整数中的较小值
-func min(a, b int) int {
+// minInt 返回两个整数中的较小值
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
@@ -259,7 +259,7 @@ func TestIntenseStress_Statistics(t *testing.T) {
 					statConn.Reset()
 					atomic.AddInt64(&completedOps, 1)
 				case 3: // 读操作
-					readBuf := make([]byte, min(dataSize, 16)) // 只读取少量数据
+					readBuf := make([]byte, minInt(dataSize, 16)) // 只读取少量数据
 					statConn.Read(readBuf)
 					atomic.AddInt64(&completedOps, 1)
 				}
