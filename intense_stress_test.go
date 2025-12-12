@@ -44,19 +44,19 @@ func TestIntenseStress_LongDuration(t *testing.T) {
 	const (
 		// 降低并发数
 		maxConcurrency = 100
-			
+
 		// 减少数据量传输
 		dataSizePerConn = 1024 * 1024 // 1MB per connection
-			
+
 		// 小块传输以增加系统负载
 		chunkSize = 4 * 1024 // 4KB chunks
-			
+
 		// 缩短测试持续时间
 		testDuration = 30 * time.Second
-			
+
 		// 降低速率限制
-		readRate  = 10 * 1024 * 1024  // 10MB/s
-		writeRate = 10 * 1024 * 1024  // 10MB/s
+		readRate  = 10 * 1024 * 1024 // 10MB/s
+		writeRate = 10 * 1024 * 1024 // 10MB/s
 	)
 
 	// 创建监听器
