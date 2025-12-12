@@ -83,10 +83,7 @@ func TestIntenseStress_LongDuration(t *testing.T) {
 	defer serverCancel()
 	
 	var serverWg sync.WaitGroup
-	serverWg.Add(1)
 	go func() {
-		defer serverWg.Done()
-		
 		// 接受连接的循环
 		for {
 			select {
@@ -155,6 +152,12 @@ func TestIntenseStress_LongDuration(t *testing.T) {
 				atomic.AddUint64(&totalTX, tx)
 			}(conn)
 		}
+	}()
+
+	// 确保在函数结束时等待所有服务器goroutine完成
+	defer func() {
+		serverCancel()
+		serverWg.Wait()
 	}()
 	
 	// 启动客户端

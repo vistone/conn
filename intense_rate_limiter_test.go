@@ -73,6 +73,10 @@ func TestIntenseStress_RateLimiter(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testDuration)
 	defer cancel()
 
+	// 设置测试超时，防止测试hang住
+	testTimeout, testCancel := context.WithTimeout(context.Background(), testDuration+2*time.Minute)
+	defer testCancel()
+
 	// 启动监控协程
 	var monitorWg sync.WaitGroup
 	monitorWg.Add(1)
@@ -85,6 +89,8 @@ func TestIntenseStress_RateLimiter(t *testing.T) {
 		for {
 			select {
 			case <-ctx.Done():
+				return
+			case <-testTimeout.Done():
 				return
 			case <-ticker.C:
 				currentTotal := atomic.LoadInt64(&totalOps)

@@ -90,10 +90,7 @@ func TestIntenseStress_Statistics(t *testing.T) {
 	defer serverCancel()
 
 	var serverWg sync.WaitGroup
-	serverWg.Add(1)
 	go func() {
-		defer serverWg.Done()
-
 		for {
 			select {
 			case <-serverCtx.Done():
@@ -163,6 +160,12 @@ func TestIntenseStress_Statistics(t *testing.T) {
 				atomic.AddUint64(&globalTX, tx)
 			}(conn)
 		}
+	}()
+
+	// 确保在函数结束时等待所有服务器goroutine完成
+	defer func() {
+		serverCancel()
+		serverWg.Wait()
 	}()
 
 	// 创建上下文用于控制测试时间
